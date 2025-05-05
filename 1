@@ -1,0 +1,40 @@
+# main.py — Этап 1
+from PySide6.QtWidgets import QApplication, QMainWindow, QTableWidget, QTableWidgetItem, QWidget, QVBoxLayout
+from db import Session, Employee
+
+
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Сотрудники фирмы")
+        self.resize(800, 600)
+
+        # Виджет-контейнер и layout
+        central_widget = QWidget()
+        layout = QVBoxLayout(central_widget)
+        self.setCentralWidget(central_widget)
+
+        # Таблица
+        self.table = QTableWidget()
+        self.table.setColumnCount(3)
+        self.table.setHorizontalHeaderLabels(["Фамилия", "Имя", "Телефон"])
+        layout.addWidget(self.table)
+
+        self.load_data()
+
+    def load_data(self):
+        session = Session()
+        employees = session.query(Employee).all()
+        self.table.setRowCount(len(employees))
+
+        for row, emp in enumerate(employees):
+            self.table.setItem(row, 0, QTableWidgetItem(emp.last_name))
+            self.table.setItem(row, 1, QTableWidgetItem(emp.name))
+            self.table.setItem(row, 2, QTableWidgetItem(emp.phone))
+
+
+if __name__ == "__main__":
+    app = QApplication([])
+    window = MainWindow()
+    window.show()
+    app.exec()
