@@ -1,121 +1,59 @@
-from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit, QComboBox, QTableWidget, QTableWidgetItem, QMessageBox
-from PySide6.QtGui import QIcon
-from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QMainWindow, QTableWidget, QTableWidgetItem, QWidget, QHBoxLayout, QVBoxLayout, QLineEdit, QComboBox
+from db import Employee, JobName, Session
 from sqlalchemy import or_
-from db import Session, Employee, JobName
-from add import AddEmployeeDialog
-from edit import EditEmployeeDialog
-
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Сотрудники фирмы")
-        self.setWindowIcon(QIcon("logo.png"))
-        self.resize(1000, 600)
-
-        layout = QVBoxLayout()
-        controls = QHBoxLayout()
-
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Поиск по ФИО")
-        self.search_input.textChanged.connect(self.update_table)
-
-        self.job_filter = QComboBox()
-        self.job_filter.addItem("Все должности", None)
-        self.job_filter.currentIndexChanged.connect(self.update_table)
-
-        self.add_button = QPushButton("Добавить")
-        self.add_button.clicked.connect(self.add_employee)
-
-        self.edit_button = QPushButton("Редактировать")
-        self.edit_button.clicked.connect(self.edit_employee)
-
-        self.delete_button = QPushButton("Удалить")
-        self.delete_button.clicked.connect(self.delete_employee)
-
-        controls.addWidget(self.search_input)
-        controls.addWidget(self.job_filter)
-        controls.addWidget(self.add_button)
-        controls.addWidget(self.edit_button)
-        controls.addWidget(self.delete_button)
-
-        self.table = QTableWidget()
-        self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(["ID", "Фамилия", "Имя", "Отчество"])
-        self.table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
-
-        layout.addLayout(controls)
-        layout.addWidget(self.table)
+        self.setWindowTitle("Employee")
+        self.setMinimumSize(500, 500)
 
         container = QWidget()
-        container.setLayout(layout)
+        control_layout = QHBoxLayout()
+        main_layout = QVBoxLayout()
+        main_layout.addLayout(control_layout)
+        container.setLayout(main_layout)
         self.setCentralWidget(container)
 
-        self.load_jobs()
-        self.update_table()
 
-    def load_jobs(self):
+        self.filter_job = QComboBox()
+        self.filter_job.addItem("Все должности")
+        control_layout.addWidget(self.filter_job)
+
+
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Search")
+        control_layout.addWidget(self.search_input)
+        self.search_input.textChanged.connect(self.load_data)
+
+        self.table = QTableWidget()
+        self.table.setColumnCount(3)
+        self.table.setHorizontalHeaderLabels(["Фамилия", "Имя", "Отчество"])
+        main_layout.addWidget(self.table)
+        
+        self.load_data()
+
+
+    def load_data(self):
         session = Session()
-        jobs = session.query(JobName).all()
-        for job in jobs:
-            self.job_filter.addItem(job.name, job.id)
-
-    def update_table(self):
-        session = Session()
-        text = self.search_input.text().lower()
-        job_id = self.job_filter.currentData()
-
         query = session.query(Employee)
-        if text:
+
+
+        s_input = self.search_input.text().lower()
+        if s_input:
             query = query.filter(or_(
-                Employee.name.ilike(f"%{text}%"),
-                Employee.last_name.ilike(f"%{text}%"),
-                Employee.middlename.ilike(f"%{text}%")
+                Employee.last_name.ilike(f"%{s_input}%"),
+                Employee.name.ilike(f"%{s_input}%"),
+                Employee.middlename.ilike(f"%{s_input}%")
             ))
-        if job_id:
-            query = query.filter(Employee.jobname_id == job_id)
+
 
         employees = query.all()
         self.table.setRowCount(len(employees))
         for row, emp in enumerate(employees):
-            self.table.setItem(row, 0, QTableWidgetItem(str(emp.id)))
-            self.table.setItem(row, 1, QTableWidgetItem(emp.last_name))
-            self.table.setItem(row, 2, QTableWidgetItem(emp.name))
-            self.table.setItem(row, 3, QTableWidgetItem(emp.middlename))
+            self.table.setItem(row, 0, QTableWidgetItem(emp.last_name))
+            self.table.setItem(row, 1, QTableWidgetItem(emp.name))
+            self.table.setItem(row, 2, QTableWidgetItem(emp.middlename))
 
-    def get_selected_id(self):
-        row = self.table.currentRow()
-        if row >= 0:
-            return int(self.table.item(row, 0).text())
-        return None
 
-    def add_employee(self):
-        dialog = AddEmployeeDialog(self)
-        if dialog.exec():
-            self.update_table()
 
-    def edit_employee(self):
-        emp_id = self.get_selected_id()
-        if emp_id is None:
-            QMessageBox.warning(self, "Редактирование", "Выберите сотрудника")
-            return
-        dialog = EditEmployeeDialog(emp_id, self)
-        if dialog.exec():
-            self.update_table()
-
-    def delete_employee(self):
-        emp_id = self.get_selected_id()
-        if emp_id is None:
-            QMessageBox.warning(self, "Удаление", "Выберите сотрудника")
-            return
-        confirm = QMessageBox.question(self, "Удаление", "Удалить сотрудника?",
-                                       QMessageBox.Yes | QMessageBox.No)
-        if confirm == QMessageBox.Yes:
-            session = Session()
-            emp = session.query(Employee).get(emp_id)
-            if emp:
-                session.delete(emp)
-                session.commit()
-                self.update_table()
