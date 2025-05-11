@@ -1,0 +1,74 @@
+from PySide6.QtWidgets import QMainWindow, QTableWidget, QTableWidgetItem, QWidget, QHBoxLayout, QVBoxLayout, QLineEdit, QComboBox
+from db import Employee, JobName, Session
+from sqlalchemy import or_
+from sqlalchemy.orm import joinedload
+
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Employee")
+        self.setMinimumSize(500, 500)
+
+        container = QWidget()
+        control_layout = QHBoxLayout()
+        main_layout = QVBoxLayout()
+        main_layout.addLayout(control_layout)
+        container.setLayout(main_layout)
+        self.setCentralWidget(container)
+
+
+        self.filter_job = QComboBox()
+        self.filter_job.addItem("Все должности")
+        control_layout.addWidget(self.filter_job)
+        self.filter_job.currentIndexChanged.connect(self.load_data)
+        self.load_jobnames()
+
+
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Search")
+        control_layout.addWidget(self.search_input)
+        self.search_input.textChanged.connect(self.load_data)
+
+        self.table = QTableWidget()
+        self.table.setColumnCount(4)
+        self.table.setHorizontalHeaderLabels(["Фамилия", "Имя", "Отчество", "Должность"])
+        main_layout.addWidget(self.table)
+        
+        self.load_data()
+
+
+    def load_jobnames(self):
+        session = Session()
+        jobNames = session.query(JobName).all()
+        for job in jobNames:
+            self.filter_job.addItem(job.name, job.id)
+
+
+    def load_data(self):
+        session = Session()
+        query = session.query(Employee)
+
+        selected_job_id = self.filter_job.currentData()
+
+
+        s_input = self.search_input.text().lower()
+        if s_input:
+            query = query.filter(or_(
+                Employee.last_name.ilike(f"%{s_input}%"),
+                Employee.name.ilike(f"%{s_input}%"),
+                Employee.middlename.ilike(f"%{s_input}%")
+            ))
+
+        if selected_job_id:
+            query = query.filter(Employee.jobname_id == selected_job_id)
+
+        employees = query.all()
+        self.table.setRowCount(len(employees))
+        for row, emp in enumerate(employees):
+            self.table.setItem(row, 0, QTableWidgetItem(emp.last_name))
+            self.table.setItem(row, 1, QTableWidgetItem(emp.name))
+            self.table.setItem(row, 2, QTableWidgetItem(emp.middlename))
+            self.table.setItem(row, 3, QTableWidgetItem(emp.jobname.name))
+
+
+
