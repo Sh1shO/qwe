@@ -48,7 +48,10 @@ class MainWindow(QMainWindow):
         session = Session()
         query = session.query(Employee)
 
+
         selected_job_id = self.filter_job.currentData()
+        if selected_job_id:
+            query = query.filter(Employee.jobname_id == selected_job_id)
 
 
         s_input = self.search_input.text().lower()
@@ -59,8 +62,6 @@ class MainWindow(QMainWindow):
                 Employee.middlename.ilike(f"%{s_input}%")
             ))
 
-        if selected_job_id:
-            query = query.filter(Employee.jobname_id == selected_job_id)
 
         employees = query.all()
         self.table.setRowCount(len(employees))
