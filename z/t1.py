@@ -1,5 +1,6 @@
 from PySide6.QtWidgets import QMainWindow, QWidget, QComboBox, QLineEdit, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem, QPushButton
 from PySide6.QtGui import QIcon
+from PySide6.QtCore import Qt
 from addDialog import AddDialog
 from editDialog import EditDialog
 from db import Session, Employee, JobName
@@ -40,10 +41,13 @@ class MainWindow(QMainWindow):
         self.btn_edit = QPushButton("edit Employee")
         control_layout.addWidget(self.btn_edit)
         self.btn_edit.clicked.connect(self.edit_employee)
-        
+
+        self.btn_delete = QPushButton("delete Employee")
+        control_layout.addWidget(self.btn_delete)
+        self.btn_delete.clicked.connect(self.delete_employee)
+
         self.filter_jobname()
         self.load_data()
-
 
     def filter_jobname(self):
         session = Session()
@@ -69,26 +73,38 @@ class MainWindow(QMainWindow):
         employees = query.all()
         self.table.setRowCount(len(employees))
         for row, emp in enumerate(employees):
-            self.table.setItem(row, 0, QTableWidgetItem(emp.last_name))
+            last_name_item = QTableWidgetItem(emp.last_name)
+            last_name_item.setData(Qt.UserRole, emp.id)
+            self.table.setItem(row, 0, last_name_item)
             self.table.setItem(row, 1, QTableWidgetItem(emp.name))
             self.table.setItem(row, 2, QTableWidgetItem(emp.middlename))
             self.table.setItem(row, 3, QTableWidgetItem(emp.jobname.name))
-    
+
     def add_employee(self):
         dialog = AddDialog(self)
         if dialog.exec():
             self.load_data()
-    
+
     def edit_employee(self):
         row = self.table.currentRow()
         if row < 0:
             return
-
-        emp_lastname = self.table.item(row, 0).text()
+        emp_id = self.table.item(row, 0).data(Qt.UserRole)
         session = Session()
-        employee = session.query(Employee).filter_by(last_name=emp_lastname).first()
-
+        employee = session.query(Employee).get(emp_id)
         if employee:
             dialog = EditDialog(employee, self)
             if dialog.exec():
                 self.load_data()
+
+    def delete_employee(self):
+        row = self.table.currentRow()
+        if row < 0:
+            return
+        emp_id = self.table.item(row, 0).data(Qt.UserRole)
+        session = Session()
+        employee = session.query(Employee).get(emp_id)
+        if employee:
+            session.delete(employee)
+            session.commit()
+            self.load_data()
